@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	appContext "github.com/tgmk/know-trade/internal/context"
+
 	"github.com/Kucoin/kucoin-go-sdk"
 
 	knowtrade "github.com/tgmk/know-trade"
@@ -48,12 +50,14 @@ func main() {
 			OrderBookSize: 20,
 			PrintsSize:    120,
 		},
-		OrderExecutor: cli,
+		ExchangeClient: cli,
 	}
 
-	s := knowtrade.New(ctx, cfg)
+	aCtx := appContext.New(ctx, cfg)
 
-	d := s.GetData()
+	s := knowtrade.New(aCtx)
+
+	d := aCtx.GetData()
 
 	go readRealTimeFromExchange(ctx, symbol, d)
 
@@ -72,14 +76,14 @@ func strategyHandler(ctx context.Context, cfg *config.Config, d *data.Data) erro
 
 	switch {
 	case lastPrint.Size > 0.1 && lastPrint.Side == "sell":
-		o, err := cfg.OrderExecutor.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
+		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
 	case lastPrint.Size > 0.1 && lastPrint.Side == "buy":
-		o, err := cfg.OrderExecutor.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
+		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}

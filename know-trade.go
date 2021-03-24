@@ -6,6 +6,8 @@ import (
 	"context"
 	"time"
 
+	ctx "github.com/tgmk/know-trade/internal/context"
+
 	"github.com/sirupsen/logrus"
 
 	"github.com/tgmk/know-trade/internal/config"
@@ -20,10 +22,7 @@ type ErrHandler func(ctx context.Context, cfg *config.Config, d *data.Data, err 
 
 // strategy represents strategy runner
 type strategy struct {
-	ctx context.Context
-
-	config *config.Config
-	data   *data.Data
+	ctx *ctx.Context
 
 	errCh chan error
 	errH  ErrHandler
@@ -32,14 +31,9 @@ type strategy struct {
 }
 
 func New(
-	ctx context.Context,
-	config *config.Config,
+	ctx *ctx.Context,
 ) *strategy {
 	return &strategy{
-		ctx: ctx,
-
-		data:   data.New(ctx, config),
-		config: config,
 
 		errCh: make(chan error),
 
@@ -48,19 +42,19 @@ func New(
 }
 
 func (s *strategy) GetData() *data.Data {
-	return s.data
+	return s.ctx.GetData()
 }
 
 // Run runs your trade strategy logic
 func (s *strategy) Run(ctx context.Context, h Handler, errH ErrHandler) {
-	go s.data.Process()
+	go s.ctx.GetData().Process()
 
 	if errH != nil {
 		s.errH = errH
 		go s.processErrors(ctx, s.errH)
 	}
 
-	switch s.config.HowRun {
+	switch s.ctx.GetConfig().HowRun {
 	case config.TickerRun:
 		go s.tickerRun(ctx, h)
 	case config.EveryCandleRun:
@@ -74,7 +68,7 @@ func (s *strategy) Run(ctx context.Context, h Handler, errH ErrHandler) {
 }
 
 func (s *strategy) tickerRun(ctx context.Context, h Handler) {
-	ticker := time.NewTicker(s.config.TickerInterval)
+	ticker := time.NewTicker(s.ctx.GetConfig().TickerInterval)
 	defer ticker.Stop()
 
 	for {
@@ -82,7 +76,7 @@ func (s *strategy) tickerRun(ctx context.Context, h Handler) {
 		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
-			err := h(ctx, s.config, s.data)
+			err := h(ctx, s.ctx.GetConfig(), s.GetData())
 			if err != nil {
 				s.log.WithError(err).WithField("run", "ticker").Error("strategy execute failed")
 				if s.errH != nil {
@@ -98,8 +92,8 @@ func (s *strategy) byCandleRun(ctx context.Context, h Handler) {
 		select {
 		case <-s.ctx.Done():
 			return
-		case <-s.data.CandleCh():
-			err := h(ctx, s.config, s.data)
+		case <-s.GetData().CandleCh():
+			err := h(ctx, s.ctx.GetConfig(), s.GetData())
 			if err != nil {
 				s.log.WithError(err).WithField("run", "every_candle").Error("strategy execute failed")
 				if s.errH != nil {
@@ -115,8 +109,8 @@ func (s *strategy) byPrintRun(ctx context.Context, h Handler) {
 		select {
 		case <-s.ctx.Done():
 			return
-		case <-s.data.PrintCh():
-			err := h(ctx, s.config, s.data)
+		case <-s.GetData().PrintCh():
+			err := h(ctx, s.ctx.GetConfig(), s.GetData())
 			if err != nil {
 				s.log.WithError(err).WithField("run", "every_print").Error("strategy execute failed")
 				if s.errH != nil {
@@ -128,7 +122,7 @@ func (s *strategy) byPrintRun(ctx context.Context, h Handler) {
 }
 
 func (s *strategy) byOthersRun(ctx context.Context, h Handler) {
-	err := h(ctx, s.config, s.data)
+	err := h(ctx, s.ctx.GetConfig(), s.GetData())
 	if err != nil {
 		s.log.WithError(err).WithField("run", "every_print").Error("strategy execute failed")
 		if s.errH != nil {
@@ -144,9 +138,9 @@ func (s *strategy) processErrors(ctx context.Context, errH ErrHandler) {
 			return
 		case err := <-s.errCh:
 			if err != nil {
-				resultErr := errH(ctx, s.config, s.data, err)
+				resultErr := errH(ctx, s.ctx.GetConfig(), s.GetData(), err)
 				if resultErr != nil {
-					s.log.WithError(err).WithField("run", s.config.HowRun).Error("exit by error process")
+					s.log.WithError(err).WithField("run", s.ctx.GetConfig().HowRun).Error("exit by error process")
 					return
 				}
 			}
