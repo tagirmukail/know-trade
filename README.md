@@ -1,4 +1,4 @@
-# Go SDK for create your trade strategies
+# Go SDK for create your trade strategies(Work In Progress)
 
 
 ## Install
@@ -8,6 +8,21 @@ go get github.com/tgmk/know-trade
 ```
 
 ## Usage
+```go
+config.Config{
+		Run: config.Run{
+			HowRun: config.EveryPrintRun, // you can run your strategy by every incoming print(config.EveryPrintRun), 
+			// every incoming candle(config.EveryPrintRun), by tick(config.TickerRun), install config.TickerInterval
+			TickerInterval: time.Minute,
+		},
+		Data: config.Data{
+			CandlesSize:   20, // install limit for candles in cache
+			OrderBookSize: 20, // install limit for order book items in cache
+			PrintsSize:    120, // install limit for prints(order matches) in cache
+		},
+		ExchangeClient: cli, // your exchange sclient
+	}
+```
 
 ### Real time application
 
@@ -64,7 +79,7 @@ func main() {
 			OrderBookSize: 20,
 			PrintsSize:    120,
 		},
-		OrderExecutor: cli,
+		ExchangeClient: cli,
 	}
 
 	s := knowtrade.New(ctx, cfg)
@@ -91,14 +106,14 @@ func strategyHandler(ctx context.Context, cfg *config.Config, d *data.Data) erro
 
 	switch {
 	case lastPrint.Size > 0.1 && lastPrint.Side == "sell":
-		o, err := cfg.OrderExecutor.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
+		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
 	case lastPrint.Size > 0.1 && lastPrint.Side == "buy":
-		o, err := cfg.OrderExecutor.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
+		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
@@ -361,7 +376,7 @@ func main() {
 			OrderBookSize: 20,
 			PrintsSize:    120,
 		},
-		OrderExecutor: cli,
+		ExchangeClient: cli,
 	}
 
 	s := knowtrade.New(ctx, cfg)
@@ -430,14 +445,14 @@ func strategyHandler(ctx context.Context, cfg *config.Config, d *data.Data) erro
 
 	switch {
 	case lastPrint.Size > 0.1 && lastPrint.Side == "sell":
-		o, err := cfg.OrderExecutor.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
+		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
 	case lastPrint.Size > 0.1 && lastPrint.Side == "buy":
-		o, err := cfg.OrderExecutor.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
+		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
@@ -452,4 +467,4 @@ func strategyHandler(ctx context.Context, cfg *config.Config, d *data.Data) erro
 
 ```
 
-#### More examples see [examples](./examples/cmd)
+#### More [examples](./examples/cmd)

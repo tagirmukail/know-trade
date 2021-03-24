@@ -36,6 +36,6 @@ type Config struct {
 	Run
 	Data
 	Test
-	OrderExecutor executor.Order
-	Other         map[string]interface{}
+	ExchangeClient executor.ExchangeClient
+	Other          map[string]interface{}
 }
