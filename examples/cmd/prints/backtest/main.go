@@ -14,7 +14,6 @@ import (
 	knowtrade "github.com/tgmk/know-trade"
 	"github.com/tgmk/know-trade/examples/testcli"
 	"github.com/tgmk/know-trade/internal/config"
-	"github.com/tgmk/know-trade/internal/data"
 	"github.com/tgmk/know-trade/internal/types"
 
 	appContext "github.com/tgmk/know-trade/internal/context"
@@ -44,6 +43,7 @@ func main() {
 
 	cfg := &config.Config{
 		Run: config.Run{
+			Symbol: "BTC-USDT",
 			HowRun: config.EveryPrintRun,
 		},
 		Data: config.Data{
@@ -51,12 +51,13 @@ func main() {
 			OrderBookSize: 20,
 			PrintsSize:    120,
 		},
-		ExchangeClient: cli,
 	}
 
 	aCtx := appContext.New(ctx, cfg)
 
-	s := knowtrade.New(aCtx)
+	aCtx.SetExchangeClient(cli)
+
+	s := knowtrade.New(aCtx, nil)
 
 	d := aCtx.GetData()
 
@@ -68,7 +69,7 @@ func main() {
 	reader := csv.NewReader(f)
 	reader.Comma = ';'
 
-	s.Run(ctx, strategyHandler, nil)
+	s.Run(strategyHandler, nil)
 
 	for {
 		var record []string
@@ -113,23 +114,21 @@ func main() {
 	log.Printf("earning: %v", r.Earning)
 }
 
-func strategyHandler(ctx context.Context, cfg *config.Config, d *data.Data) error {
-	prints := d.GetPrints()
+func strategyHandler(ctx *appContext.Context) error {
+	prints := ctx.GetData().GetPrints()
 
-	lastPrint := prints.GetLast()
-
-	symbol := lastPrint.Symbol
+	lastPrint := prints.GetLast(ctx.GetConfig().Symbol)
 
 	switch {
 	case lastPrint.Size > 0.1 && lastPrint.Side == "sell":
-		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
+		o, err := ctx.GetExchangeClient().Limit(ctx, ctx.GetConfig().Symbol, "sell", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
 	case lastPrint.Size > 0.1 && lastPrint.Side == "buy":
-		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
+		o, err := ctx.GetExchangeClient().Limit(ctx, ctx.GetConfig().Symbol, "buy", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}

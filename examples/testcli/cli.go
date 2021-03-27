@@ -106,6 +106,18 @@ func (c *TestExchangeClient) Cancel(_ context.Context, orderID string) (*types.O
 	return o, nil
 }
 
+func (c *TestExchangeClient) GetCandles(ctx context.Context) ([]*types.Candle, error) {
+	panic("not implemented")
+}
+
+func (c *TestExchangeClient) GetOrderBook(ctx context.Context) ([]*types.OrderBook, error) {
+	panic("not implemented")
+}
+
+func (c *TestExchangeClient) GetPrints(ctx context.Context) ([]*types.Print, error) {
+	panic("not implemented")
+}
+
 func (c *TestExchangeClient) calculateCanceled(side string, price, size float64) {
 	orderPrice := size * price
 	var orderFee float64

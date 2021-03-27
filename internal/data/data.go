@@ -7,8 +7,6 @@ import (
 	"github.com/tgmk/know-trade/internal/types"
 )
 
-// TODO add order changes place, cancel, match
-
 type Data struct {
 	ctx context.Context
 
@@ -21,6 +19,7 @@ type Data struct {
 	candles        *candles
 	orderBookCache *orderBookCache
 	printsCache    *prints
+	orders         *orders
 }
 
 func New(ctx context.Context, cfg *config.Config) *Data {
@@ -29,13 +28,14 @@ func New(ctx context.Context, cfg *config.Config) *Data {
 
 		config: cfg,
 
-		incomingDataCh:   make(chan types.Incoming),
-		candleReceivedCh: make(chan struct{}),
-		printCh:          make(chan struct{}),
+		incomingDataCh:   make(chan types.Incoming, 2024),
+		candleReceivedCh: make(chan struct{}, 1024),
+		printCh:          make(chan struct{}, 2024),
 
 		candles:        newCandles(cfg.Data.CandlesSize),
 		orderBookCache: newOrderBookCache(cfg.Data.OrderBookSize),
 		printsCache:    newPrints(cfg.Data.PrintsSize),
+		orders:         newOrders(),
 	}
 }
 
@@ -102,6 +102,10 @@ func (d *Data) Process() {
 				}
 
 				d.printsCache.Set(p)
+			case types.IncomingOrder:
+				o := inc.Order()
+
+				d.orders.Set(o)
 			default:
 				panic("unknown incoming data")
 			}

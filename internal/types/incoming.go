@@ -7,6 +7,7 @@ const (
 	IncomingCandle
 	IncomingOrderBook
 	IncomingPrint
+	IncomingOrder
 )
 
 type Incoming interface {
@@ -14,4 +15,5 @@ type Incoming interface {
 	Candle() *Candle
 	OrderBook() *OrderBook
 	Print() *Print
+	Order() *Order
 }

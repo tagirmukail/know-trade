@@ -3,10 +3,11 @@ package types
 import "time"
 
 type OrderBook struct {
-	Price float64
-	Size  float64
-	Time  time.Time
-	Other map[string]interface{}
+	Price  float64
+	Size   float64
+	Time   time.Time
+	Symbol string
+	Other  map[string]interface{}
 }
 
 func (o *OrderBook) Type() IncomingType {
@@ -22,5 +23,9 @@ func (o *OrderBook) OrderBook() *OrderBook {
 }
 
 func (o *OrderBook) Print() *Print {
+	panic("not implemented")
+}
+
+func (o *OrderBook) Order() *Order {
 	panic("not implemented")
 }

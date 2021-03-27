@@ -2,8 +2,6 @@ package config
 
 import (
 	"time"
-
-	"github.com/tgmk/know-trade/internal/executor"
 )
 
 type RunType uint8
@@ -12,7 +10,6 @@ const (
 	TickerRun RunType = iota
 	EveryCandleRun
 	EveryPrintRun
-	ByOthersRun
 )
 
 type Data struct {
@@ -23,6 +20,7 @@ type Data struct {
 }
 
 type Run struct {
+	Symbol         string
 	HowRun         RunType
 	TickerInterval time.Duration
 	Other          map[string]interface{}
@@ -36,6 +34,5 @@ type Config struct {
 	Run
 	Data
 	Test
-	ExchangeClient executor.ExchangeClient
-	Other          map[string]interface{}
+	Other map[string]interface{}
 }

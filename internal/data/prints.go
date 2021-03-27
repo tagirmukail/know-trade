@@ -8,7 +8,7 @@ import (
 
 type prints struct {
 	sync.Mutex
-	cache []*types.Print
+	cache map[symbol][]*types.Print
 
 	size int
 }
@@ -16,7 +16,7 @@ type prints struct {
 func newPrints(size int) *prints {
 	return &prints{
 		Mutex: sync.Mutex{},
-		cache: make([]*types.Print, 0),
+		cache: make(map[symbol][]*types.Print),
 		size:  size,
 	}
 }
@@ -25,27 +25,27 @@ func (c *prints) Set(print *types.Print) {
 	c.Lock()
 	defer c.Unlock()
 
-	first := len(c.cache) - c.size
+	first := len(c.cache[print.Symbol]) - c.size
 	if first < 0 {
 		first = 0
 	}
 
-	c.cache = append(c.cache[first:], print)
+	c.cache[print.Symbol] = append(c.cache[print.Symbol][first:], print)
 }
 
-func (c *prints) GetLast() *types.Print {
+func (c *prints) GetLast(s symbol) *types.Print {
 	c.Lock()
 	defer c.Unlock()
 
-	return c.cache[len(c.cache)-1]
+	return c.cache[s][len(c.cache)-1]
 }
 
-func (c *prints) Get() []*types.Print {
+func (c *prints) Get(s symbol) []*types.Print {
 	c.Lock()
 	defer c.Unlock()
 
-	res := make([]*types.Print, len(c.cache))
-	copy(res, c.cache)
+	res := make([]*types.Print, len(c.cache[s]))
+	copy(res, c.cache[s])
 
 	return res
 }

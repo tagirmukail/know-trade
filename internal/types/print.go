@@ -26,3 +26,7 @@ func (p *Print) OrderBook() *OrderBook {
 func (p *Print) Print() *Print {
 	return p
 }
+
+func (p *Print) Order() *Order {
+	panic("not implemented")
+}

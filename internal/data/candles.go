@@ -8,7 +8,7 @@ import (
 
 type candles struct {
 	sync.Mutex
-	candles []*types.Candle
+	candles map[types.Period][]*types.Candle
 
 	size int
 }
@@ -16,7 +16,7 @@ type candles struct {
 func newCandles(size int) *candles {
 	return &candles{
 		Mutex:   sync.Mutex{},
-		candles: make([]*types.Candle, 0),
+		candles: make(map[types.Period][]*types.Candle),
 		size:    size,
 	}
 }
@@ -25,27 +25,32 @@ func (c *candles) Set(candle *types.Candle) {
 	c.Lock()
 	defer c.Unlock()
 
-	first := len(c.candles) - c.size
+	_, ok := c.candles[candle.Period]
+	if !ok {
+		c.candles[candle.Period] = make([]*types.Candle, 0)
+	}
+
+	first := len(c.candles[candle.Period]) - c.size
 	if first < 0 {
 		first = 0
 	}
 
-	c.candles = append(c.candles[first:], candle)
+	c.candles[candle.Period] = append(c.candles[candle.Period][first:], candle)
 }
 
-func (c *candles) GetLast() *types.Candle {
+func (c *candles) GetLast(period types.Period) *types.Candle {
 	c.Lock()
 	defer c.Unlock()
 
-	return c.candles[len(c.candles)-1]
+	return c.candles[period][len(c.candles[period])-1]
 }
 
-func (c *candles) Get() []*types.Candle {
+func (c *candles) Get(period types.Period) []*types.Candle {
 	c.Lock()
 	defer c.Unlock()
 
-	res := make([]*types.Candle, len(c.candles))
-	copy(res, c.candles)
+	res := make([]*types.Candle, len(c.candles[period]))
+	copy(res, c.candles[period])
 
 	return res
 }

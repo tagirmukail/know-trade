@@ -50,40 +50,41 @@ func main() {
 			OrderBookSize: 20,
 			PrintsSize:    120,
 		},
-		ExchangeClient: cli,
 	}
 
 	aCtx := appContext.New(ctx, cfg)
 
-	s := knowtrade.New(aCtx)
+	aCtx.SetExchangeClient(cli)
+
+	s := knowtrade.New(aCtx, nil)
 
 	d := aCtx.GetData()
 
 	go readRealTimeFromExchange(ctx, symbol, d)
 
-	s.Run(ctx, strategyHandler, nil)
+	s.Run(strategyHandler, nil)
 
 	<-done
 	cancel()
 }
 
-func strategyHandler(ctx context.Context, cfg *config.Config, d *data.Data) error {
-	prints := d.GetPrints()
+func strategyHandler(ctx *appContext.Context) error {
+	prints := ctx.GetData().GetPrints()
 
-	lastPrint := prints.GetLast()
+	lastPrint := prints.GetLast(ctx.GetConfig().Symbol)
 
 	symbol := lastPrint.Symbol
 
 	switch {
 	case lastPrint.Size > 0.1 && lastPrint.Side == "sell":
-		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
+		o, err := ctx.GetExchangeClient().Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
 	case lastPrint.Size > 0.1 && lastPrint.Side == "buy":
-		o, err := cfg.ExchangeClient.Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
+		o, err := ctx.GetExchangeClient().Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
 		if err != nil {
 			return err
 		}
