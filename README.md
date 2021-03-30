@@ -11,15 +11,15 @@ go get github.com/tgmk/know-trade
 ```go
 config.Config{
 		Run: config.Run{
-            Symbol: "BTC-USDT" // you can run strategy for trade by this symbol or use stock identification
-			HowRun: config.EveryPrintRun, // you can run your strategy by every incoming print(config.EveryPrintRun), 
-			// every incoming candle(config.EveryPrintRun), by tick(config.TickerRun), install config.TickerInterval
+			HowRun: config.EveryMatchRun, // you can run your strategy by every incoming match(config.EveryMatchRun), 
+			// every incoming candle(config.EveryCandleRun), by tick(config.TickerRun), install config.TickerInterval
 			TickerInterval: time.Minute,
+            InstrumentID:   "BTC-USDT", // you can run strategy for trade by this pair or use stock identification or other
 		},
 		Data: config.Data{
 			CandlesSize:   20, // install limit for candles in cache
 			OrderBookSize: 20, // install limit for order book items in cache
-			PrintsSize:    120, // install limit for prints(order matches) in cache
+			MatchesSize:   120, // install limit for prints(order matches) in cache
 		},
 	}
 ```
@@ -34,13 +34,13 @@ func main() {
 		feePercent   float64
 		fee          float64
 		startBalance float64
-		symbol       string
+		pair         string
 	)
 
 	flag.Float64Var(&feePercent, "feePercent", 3, "fee in percent")
 	flag.Float64Var(&fee, "fee", 0, "fixed fee")
 	flag.Float64Var(&startBalance, "balance", 1000, "start balance")
-	flag.StringVar(&symbol, "symbol", "BTC-USDT", "symbol")
+	flag.StringVar(&pair, "pair", "BTC-USDT", "pair")
 
 	flag.Parse()
 
@@ -55,12 +55,13 @@ func main() {
   // configure your strategy
 	cfg := &config.Config{
 		Run: config.Run{
-			HowRun: config.EveryPrintRun,
+			HowRun:       config.EveryMatchRun,
+			InstrumentID: pair,
 		},
 		Data: config.Data{
 			CandlesSize:   20,
 			OrderBookSize: 20,
-			PrintsSize:    120,
+			MatchesSize:   120,
 		},
 	}
 
@@ -72,8 +73,7 @@ func main() {
 
 	d := aCtx.GetData()
 
-	// read data from exchange
-	go readRealTimeFromExchange(ctx, symbol, d)
+	go readRealTimeFromExchange(ctx, pair, d)
 
 	// run your strategy
 	s.Run(strategyHandler, nil)
@@ -84,36 +84,52 @@ func main() {
 
 // strategyHandler your strategy handler
 func strategyHandler(ctx *appContext.Context) error {
-	prints := ctx.GetData().GetPrints()
+	matches := ctx.GetData().GetMatches()
 
-	lastPrint := prints.GetLast(ctx.GetConfig().Symbol)
+	lastMatch := matches.GetLast(ctx.GetConfig().InstrumentID)
 
-	symbol := lastPrint.Symbol
+	pair := lastMatch.InstrumentID
 
 	switch {
-	case lastPrint.Size > 0.1 && lastPrint.Side == "sell":
-		o, err := ctx.GetExchangeClient().Limit(ctx, symbol, "sell", lastPrint.Price, 0.0001)
+	case lastMatch.Size > 0.1 && lastMatch.Side == "sell":
+		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
+			Price:        lastMatch.Price,
+			Size:         0.0001,
+			InstrumentID: pair,
+			Side:         "sell",
+		})
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
-	case lastPrint.Size > 0.1 && lastPrint.Side == "buy":
-		o, err := ctx.GetExchangeClient().Limit(ctx, symbol, "buy", lastPrint.Price, 0.0001)
+	case lastMatch.Size > 0.1 && lastMatch.Side == "buy":
+		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
+			Price:        lastMatch.Price,
+			Size:         0.0001,
+			InstrumentID: pair,
+			Side:         "buy",
+		})
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
 	default:
-		log.Printf("skip print: %#v", lastPrint)
+		log.Printf("skip print: %#v", lastMatch)
 	}
+
+	cli, _ := ctx.GetExchangeClient().(*testcli.TestExchangeClient)
+
+	r := cli.Result()
+
+	log.Printf("balance: %v", r.Balance)
+	log.Printf("earning: %v", r.Earning)
 
 	return nil
 }
 
-// readRealTimeFromExchange reads data from exchange and send to strategy executor
-func readRealTimeFromExchange(ctx context.Context, symbol string, d *data.Data) {
+func readRealTimeFromExchange(ctx context.Context, pair string, d *data.Data) {
 	s := kucoin.NewApiService(
 		kucoin.ApiKeyOption(""),
 		kucoin.ApiSecretOption(""),
@@ -138,7 +154,7 @@ func readRealTimeFromExchange(ctx context.Context, symbol string, d *data.Data) 
 		log.Fatal(err)
 	}
 
-	ch := kucoin.NewSubscribeMessage("/market/match:"+symbol, false)
+	ch := kucoin.NewSubscribeMessage("/market/match:"+pair, false)
 
 	err = c.Subscribe(ch)
 	if err != nil {
@@ -164,17 +180,19 @@ func readRealTimeFromExchange(ctx context.Context, symbol string, d *data.Data) 
 				log.Fatal(err)
 			}
 
-			p := &types.Print{
-				Symbol: match.GetSymbol(),
-				Price:  match.GetPrice(),
-				Size:   match.GetSize(),
-				Side:   match.GetSide(),
-				Time:   match.GetTime(),
+			m := &types.Match{
+				InstrumentID: match.GetSymbol(),
+				Price:        match.GetPrice(),
+				Size:         match.GetSize(),
+				Side:         match.GetSide(),
+				Time:         match.GetTime(),
+				Taker:        match.TakerOrderID,
+				Maker:        match.MakerOrderID,
 			}
 
-			d.SendToIncomingCh(p)
+			d.SendToIncomingCh(m)
 
-			log.Printf("print message sended: %#v", p)
+			log.Printf("print message sended: %#v", m)
 		}
 	}
 }

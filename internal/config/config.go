@@ -9,18 +9,18 @@ type RunType uint8
 const (
 	TickerRun RunType = iota
 	EveryCandleRun
-	EveryPrintRun
+	EveryMatchRun
 )
 
 type Data struct {
 	CandlesSize   int
 	OrderBookSize int
-	PrintsSize    int
+	MatchesSize   int
 	Other         map[string]interface{}
 }
 
 type Run struct {
-	Symbol         string
+	InstrumentID   string
 	HowRun         RunType
 	TickerInterval time.Duration
 	Other          map[string]interface{}

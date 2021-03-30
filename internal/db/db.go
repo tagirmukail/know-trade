@@ -1,7 +1,7 @@
 package db
 
 import (
-	ctx "github.com/tgmk/know-trade/internal/context"
+	"context"
 )
 
 type CollectionName string
@@ -11,8 +11,8 @@ type IDB interface {
 }
 
 type Collection interface {
-	Save(ctx *ctx.Context, in interface{}) error
-	Get(ctx *ctx.Context) interface{}
-	List(ctx *ctx.Context) []interface{}
-	Remove(ctx *ctx.Context, in interface{}) error
+	Save(ctx context.Context, in interface{}) error
+	Get(ctx context.Context) interface{}
+	List(ctx context.Context) []interface{}
+	Remove(ctx context.Context, in interface{}) error
 }

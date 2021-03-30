@@ -43,13 +43,13 @@ func main() {
 
 	cfg := &config.Config{
 		Run: config.Run{
-			Symbol: "BTC-USDT",
-			HowRun: config.EveryPrintRun,
+			InstrumentID: "BTC-USDT",
+			HowRun:       config.EveryMatchRun,
 		},
 		Data: config.Data{
 			CandlesSize:   20,
 			OrderBookSize: 20,
-			PrintsSize:    120,
+			MatchesSize:   120,
 		},
 	}
 
@@ -83,27 +83,31 @@ func main() {
 
 		time.Sleep(500 * time.Millisecond)
 
-		if len(record) != 5 {
+		if len(record) != 7 {
 			continue
 		}
 
 		match := &testcli.MatchMessage{
-			Symbol: record[0],
-			Price:  record[1],
-			Size:   record[2],
-			Side:   record[3],
-			Time:   record[4],
+			Symbol:       record[0],
+			Price:        record[1],
+			Size:         record[2],
+			Side:         record[3],
+			Time:         record[4],
+			MakerOrderID: record[5],
+			TakerOrderID: record[6],
 		}
 
-		p := &types.Print{
-			Symbol: match.GetSymbol(),
-			Price:  match.GetPrice(),
-			Size:   match.GetSize(),
-			Side:   match.GetSide(),
-			Time:   match.GetTime(),
+		m := &types.Match{
+			InstrumentID: match.GetSymbol(),
+			Price:        match.GetPrice(),
+			Size:         match.GetSize(),
+			Side:         match.GetSide(),
+			Time:         match.GetTime(),
+			Maker:        match.MakerOrderID,
+			Taker:        match.TakerOrderID,
 		}
 
-		d.SendToIncomingCh(p)
+		d.SendToIncomingCh(m)
 	}
 
 	cancel()
@@ -115,27 +119,37 @@ func main() {
 }
 
 func strategyHandler(ctx *appContext.Context) error {
-	prints := ctx.GetData().GetPrints()
+	matches := ctx.GetData().GetMatches()
 
-	lastPrint := prints.GetLast(ctx.GetConfig().Symbol)
+	lastMatch := matches.GetLast(ctx.GetConfig().InstrumentID)
 
 	switch {
-	case lastPrint.Size > 0.1 && lastPrint.Side == "sell":
-		o, err := ctx.GetExchangeClient().Limit(ctx, ctx.GetConfig().Symbol, "sell", lastPrint.Price, 0.0001)
+	case lastMatch.Size > 0.1 && lastMatch.Side == "sell":
+		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
+			Price:        lastMatch.Price,
+			Size:         0.0001,
+			InstrumentID: ctx.GetConfig().InstrumentID,
+			Side:         "sell",
+		})
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
-	case lastPrint.Size > 0.1 && lastPrint.Side == "buy":
-		o, err := ctx.GetExchangeClient().Limit(ctx, ctx.GetConfig().Symbol, "buy", lastPrint.Price, 0.0001)
+	case lastMatch.Size > 0.1 && lastMatch.Side == "buy":
+		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
+			Price:        lastMatch.Price,
+			Size:         0.0001,
+			InstrumentID: ctx.GetConfig().InstrumentID,
+			Side:         "buy",
+		})
 		if err != nil {
 			return err
 		}
 
 		log.Printf("executed: %#v", o)
 	default:
-		log.Printf("skip print: %#v", lastPrint)
+		log.Printf("skip print: %#v", lastMatch)
 	}
 
 	return nil

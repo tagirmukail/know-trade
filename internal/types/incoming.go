@@ -6,7 +6,7 @@ const (
 	_ IncomingType = iota
 	IncomingCandle
 	IncomingOrderBook
-	IncomingPrint
+	IncomingMatch
 	IncomingOrder
 )
 
@@ -14,6 +14,6 @@ type Incoming interface {
 	Type() IncomingType
 	Candle() *Candle
 	OrderBook() *OrderBook
-	Print() *Print
+	Match() *Match
 	Order() *Order
 }

@@ -8,7 +8,7 @@ import (
 
 type candles struct {
 	sync.Mutex
-	candles map[types.Period][]*types.Candle
+	candles map[instrumentID]map[types.Period][]*types.Candle
 
 	size int
 }
@@ -16,7 +16,7 @@ type candles struct {
 func newCandles(size int) *candles {
 	return &candles{
 		Mutex:   sync.Mutex{},
-		candles: make(map[types.Period][]*types.Candle),
+		candles: make(map[instrumentID]map[types.Period][]*types.Candle),
 		size:    size,
 	}
 }
@@ -25,32 +25,49 @@ func (c *candles) Set(candle *types.Candle) {
 	c.Lock()
 	defer c.Unlock()
 
-	_, ok := c.candles[candle.Period]
+	_, ok := c.candles[candle.InstrumentID]
 	if !ok {
-		c.candles[candle.Period] = make([]*types.Candle, 0)
+		c.candles[candle.InstrumentID] = map[types.Period][]*types.Candle{}
 	}
 
-	first := len(c.candles[candle.Period]) - c.size
+	_, ok = c.candles[candle.InstrumentID][candle.Period]
+	if !ok {
+		c.candles[candle.InstrumentID][candle.Period] = make([]*types.Candle, 0)
+	}
+
+	first := len(c.candles[candle.InstrumentID][candle.Period]) - c.size
 	if first < 0 {
 		first = 0
 	}
 
-	c.candles[candle.Period] = append(c.candles[candle.Period][first:], candle)
+	c.candles[candle.InstrumentID][candle.Period] = append(c.candles[candle.InstrumentID][candle.Period][first:], candle)
 }
 
-func (c *candles) GetLast(period types.Period) *types.Candle {
+func (c *candles) GetLast(instr instrumentID, period types.Period) *types.Candle {
 	c.Lock()
 	defer c.Unlock()
 
-	return c.candles[period][len(c.candles[period])-1]
+	if len(c.candles[instr]) == 0 {
+		return &types.Candle{}
+	}
+
+	if len(c.candles[instr][period]) == 0 {
+		return &types.Candle{}
+	}
+
+	return c.candles[instr][period][len(c.candles[instr][period])-1]
 }
 
-func (c *candles) Get(period types.Period) []*types.Candle {
+func (c *candles) Get(instr instrumentID, period types.Period) (res []*types.Candle) {
 	c.Lock()
 	defer c.Unlock()
 
-	res := make([]*types.Candle, len(c.candles[period]))
-	copy(res, c.candles[period])
+	if len(c.candles[instr]) == 0 {
+		return res
+	}
+
+	res = make([]*types.Candle, len(c.candles[instr][period]))
+	copy(res, c.candles[instr][period])
 
 	return res
 }

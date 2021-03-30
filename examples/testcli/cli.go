@@ -37,32 +37,32 @@ func New(ctx context.Context, feeFixed, feePercent, balance float64) *TestExchan
 	}
 }
 
-func (c *TestExchangeClient) Market(ctx context.Context, symbol, side string, size float64) (*types.Order, error) {
+func (c *TestExchangeClient) Market(ctx context.Context, req *types.MarketOrderRequest) (*types.Order, error) {
 	panic("no use")
 }
 
-func (c *TestExchangeClient) Limit(_ context.Context, symbol, side string, price, size float64) (*types.Order, error) {
+func (c *TestExchangeClient) Limit(_ context.Context, req *types.LimitOrderRequest) (*types.Order, error) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	if strings.TrimSpace(symbol) == "" {
-		return nil, errors.New("invalid symbol")
+	if strings.TrimSpace(req.InstrumentID) == "" {
+		return nil, errors.New("invalid instrumentID")
 	}
 
-	side = strings.ToLower(side)
+	side := strings.ToLower(req.Side)
 	if side != "sell" && side != "buy" {
 		return nil, errors.New("invalid side")
 	}
 
-	if price <= 0 {
+	if req.Price <= 0 {
 		return nil, errors.New("invalid price")
 	}
 
-	if size <= 0 {
+	if req.Size <= 0 {
 		return nil, errors.New("invalid size")
 	}
 
-	err := c.calculateEarning(side, price, size)
+	err := c.calculateEarning(side, req.Price, req.Size)
 	if err != nil {
 		return nil, err
 	}
@@ -70,12 +70,12 @@ func (c *TestExchangeClient) Limit(_ context.Context, symbol, side string, price
 	id := uuid.New()
 
 	o := &types.Order{
-		ID:     id.String(),
-		Symbol: symbol,
-		Side:   side,
-		Status: "filled",
-		Price:  price,
-		Size:   size,
+		ID:           id.String(),
+		InstrumentID: req.InstrumentID,
+		Side:         side,
+		Status:       types.Filled,
+		Price:        req.Price,
+		Size:         req.Size,
 		Other: map[string]interface{}{
 			"tag": "backtest",
 		},
@@ -86,35 +86,35 @@ func (c *TestExchangeClient) Limit(_ context.Context, symbol, side string, price
 	return o, nil
 }
 
-func (c *TestExchangeClient) Cancel(_ context.Context, orderID string) (*types.Order, error) {
+func (c *TestExchangeClient) Cancel(_ context.Context, req *types.CancelOrderRequest) (*types.Order, error) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 
-	o, ok := c.executedOrders[orderID]
+	o, ok := c.executedOrders[req.OrderID]
 	if !ok {
-		return nil, fmt.Errorf("order: %v does not exist", orderID)
+		return nil, fmt.Errorf("order: %v does not exist", req.OrderID)
 	}
 
-	o.Status = "canceled"
+	o.Status = types.Canceled
 
-	c.canceledOrders[orderID] = o
+	c.canceledOrders[req.OrderID] = o
 
-	delete(c.executedOrders, orderID)
+	delete(c.executedOrders, req.OrderID)
 
 	c.calculateCanceled(o.Side, o.Price, o.Size)
 
 	return o, nil
 }
 
-func (c *TestExchangeClient) GetCandles(ctx context.Context) ([]*types.Candle, error) {
+func (c *TestExchangeClient) GetCandles(ctx context.Context, req *types.GetCandlesRequest) ([]*types.Candle, error) {
 	panic("not implemented")
 }
 
-func (c *TestExchangeClient) GetOrderBook(ctx context.Context) ([]*types.OrderBook, error) {
+func (c *TestExchangeClient) GetOrderBook(ctx context.Context, req *types.GetOrderBookRequest) ([]*types.OrderBook, error) {
 	panic("not implemented")
 }
 
-func (c *TestExchangeClient) GetPrints(ctx context.Context) ([]*types.Print, error) {
+func (c *TestExchangeClient) GetPrints(ctx context.Context, req *types.GetPrintsRequest) ([]*types.Match, error) {
 	panic("not implemented")
 }
 

@@ -18,14 +18,15 @@ const (
 )
 
 type Candle struct {
-	Close  float64
-	Open   float64
-	High   float64
-	Low    float64
-	Time   time.Time
-	Volume float64
-	Period Period
-	Other  map[string]interface{}
+	InstrumentID string
+	Close        float64
+	Open         float64
+	High         float64
+	Low          float64
+	Time         time.Time
+	Volume       float64
+	Period       Period
+	Other        map[string]interface{}
 }
 
 func (c *Candle) Type() IncomingType {
@@ -40,10 +41,17 @@ func (c *Candle) OrderBook() *OrderBook {
 	panic("not implemented")
 }
 
-func (c *Candle) Print() *Print {
+func (c *Candle) Match() *Match {
 	panic("not implemented")
 }
 
 func (c *Candle) Order() *Order {
 	panic("not implemented")
+}
+
+type GetCandlesRequest struct {
+	InstrumentID string
+	Period       Period
+	From         time.Time
+	To           time.Time
 }

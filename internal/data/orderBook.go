@@ -6,11 +6,11 @@ import (
 	"github.com/tgmk/know-trade/internal/types"
 )
 
-type symbol = string
+type instrumentID = string
 
 type orderBookCache struct {
 	sync.Mutex
-	cache map[symbol][]*types.OrderBook
+	cache map[instrumentID][]*types.OrderBook
 
 	size int
 }
@@ -18,7 +18,7 @@ type orderBookCache struct {
 func newOrderBookCache(size int) *orderBookCache {
 	return &orderBookCache{
 		Mutex: sync.Mutex{},
-		cache: make(map[symbol][]*types.OrderBook),
+		cache: make(map[instrumentID][]*types.OrderBook),
 		size:  size,
 	}
 }
@@ -27,19 +27,23 @@ func (c *orderBookCache) Set(orderBook *types.OrderBook) {
 	c.Lock()
 	defer c.Unlock()
 
-	first := len(c.cache[orderBook.Symbol]) - c.size
+	first := len(c.cache[orderBook.InstrumentID]) - c.size
 	if first < 0 {
 		first = 0
 	}
 
-	c.cache[orderBook.Symbol] = append(c.cache[orderBook.Symbol][first:], orderBook)
+	c.cache[orderBook.InstrumentID] = append(c.cache[orderBook.InstrumentID][first:], orderBook)
 }
 
-func (c *orderBookCache) GetLast(sym string) *types.OrderBook {
+func (c *orderBookCache) GetLast(instrumentID string) *types.OrderBook {
 	c.Lock()
 	defer c.Unlock()
 
-	return c.cache[sym][len(c.cache)-1]
+	if len(c.cache[instrumentID]) == 0 {
+		return &types.OrderBook{}
+	}
+
+	return c.cache[instrumentID][len(c.cache)-1]
 }
 
 func (c *orderBookCache) Get(sym string) []*types.OrderBook {

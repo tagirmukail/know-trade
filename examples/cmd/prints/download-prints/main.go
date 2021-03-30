@@ -20,7 +20,7 @@ func main() {
 		symbol   string
 	)
 
-	flag.Int64Var(&rows, "rows", 2000, "download rows")
+	flag.Int64Var(&rows, "rows", 15000, "download rows")
 	flag.StringVar(&filePath, "fpath", "prints.csv", "download data to file by path")
 	flag.StringVar(&symbol, "symbol", "BTC-USDT", "symbol")
 
@@ -100,6 +100,8 @@ func main() {
 				match.Size,
 				match.Side,
 				match.Time,
+				match.MakerOrderID,
+				match.TakerOrderID,
 			}
 
 			err = csvWr.Write(record)

@@ -61,7 +61,7 @@ func (s *strategy) Run(h Handler, errH ErrHandler) {
 		go s.tickerRun(h)
 	case config.EveryCandleRun:
 		go s.byCandleRun(h)
-	case config.EveryPrintRun:
+	case config.EveryMatchRun:
 		go s.byPrintRun(h)
 	//case config.ByOthersRun:
 	default:

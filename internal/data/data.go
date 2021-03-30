@@ -14,11 +14,11 @@ type Data struct {
 
 	incomingDataCh   chan types.Incoming
 	candleReceivedCh chan struct{}
-	printCh          chan struct{}
+	matchCh          chan struct{}
 
 	candles        *candles
 	orderBookCache *orderBookCache
-	printsCache    *prints
+	matchesCache   *matches
 	orders         *orders
 }
 
@@ -30,11 +30,11 @@ func New(ctx context.Context, cfg *config.Config) *Data {
 
 		incomingDataCh:   make(chan types.Incoming, 2024),
 		candleReceivedCh: make(chan struct{}, 1024),
-		printCh:          make(chan struct{}, 2024),
+		matchCh:          make(chan struct{}, 2024),
 
 		candles:        newCandles(cfg.Data.CandlesSize),
 		orderBookCache: newOrderBookCache(cfg.Data.OrderBookSize),
-		printsCache:    newPrints(cfg.Data.PrintsSize),
+		matchesCache:   newMatches(cfg.Data.MatchesSize),
 		orders:         newOrders(),
 	}
 }
@@ -47,8 +47,8 @@ func (d *Data) GetOrderBookCache() *orderBookCache {
 	return d.orderBookCache
 }
 
-func (d *Data) GetPrints() *prints {
-	return d.printsCache
+func (d *Data) GetMatches() *matches {
+	return d.matchesCache
 }
 
 func (d *Data) SendToIncomingCh(inc types.Incoming) {
@@ -59,8 +59,8 @@ func (d *Data) SendToCandlesCh() {
 	d.candleReceivedCh <- struct{}{}
 }
 
-func (d *Data) SendToPrintCh() {
-	d.printCh <- struct{}{}
+func (d *Data) SendToMatchCh() {
+	d.matchCh <- struct{}{}
 }
 
 func (d *Data) IncomingCh() chan types.Incoming {
@@ -72,7 +72,7 @@ func (d *Data) CandleCh() chan struct{} {
 }
 
 func (d *Data) PrintCh() chan struct{} {
-	return d.printCh
+	return d.matchCh
 }
 
 func (d *Data) Process() {
@@ -94,14 +94,14 @@ func (d *Data) Process() {
 				ob := inc.OrderBook()
 
 				d.orderBookCache.Set(ob)
-			case types.IncomingPrint:
-				p := inc.Print()
+			case types.IncomingMatch:
+				p := inc.Match()
 
-				if d.config.HowRun == config.EveryPrintRun {
-					d.SendToPrintCh()
+				if d.config.HowRun == config.EveryMatchRun {
+					d.SendToMatchCh()
 				}
 
-				d.printsCache.Set(p)
+				d.matchesCache.Set(p)
 			case types.IncomingOrder:
 				o := inc.Order()
 

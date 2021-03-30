@@ -2,15 +2,14 @@ package types
 
 import "time"
 
-type Status uint8
+type Status string
 
 const (
-	_ Status = iota
-	Opened
-	Filled
-	PartialFilled
-	Canceled
-	Failed
+	Open          Status = "open"
+	Filled        Status = "filled"
+	PartialFilled Status = "partial_filled"
+	Canceled      Status = "canceled"
+	Failed        Status = "failed"
 )
 
 func (o *Order) Type() IncomingType {
@@ -18,14 +17,14 @@ func (o *Order) Type() IncomingType {
 }
 
 type Order struct {
-	ID     string
-	Symbol string
-	Side   string
-	Status Status
-	Price  float64
-	Size   float64
-	Time   time.Time
-	Other  map[string]interface{}
+	ID           string
+	InstrumentID string
+	Side         string
+	Status       Status
+	Price        float64
+	Size         float64
+	Time         time.Time
+	Other        map[string]interface{}
 }
 
 func (o *Order) Order() *Order {
@@ -40,6 +39,24 @@ func (o *Order) OrderBook() *OrderBook {
 	panic("not implemented")
 }
 
-func (o *Order) Print() *Print {
+func (o *Order) Match() *Match {
 	panic("not implemented")
+}
+
+type LimitOrderRequest struct {
+	Price        float64
+	Size         float64
+	InstrumentID string
+	Side         string
+}
+
+type MarketOrderRequest struct {
+	Price        float64
+	Size         float64
+	InstrumentID string
+	Side         string
+}
+
+type CancelOrderRequest struct {
+	OrderID string
 }
