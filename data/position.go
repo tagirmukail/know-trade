@@ -4,31 +4,31 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/tgmk/know-trade/internal/types"
+	"github.com/tgmk/know-trade/types"
 )
 
 type id = string
 
-type orders struct {
+type position struct {
 	sync.Mutex
 	cache map[id]*types.Order
 }
 
-func newOrders() *orders {
-	return &orders{
+func newPosition() *position {
+	return &position{
 		Mutex: sync.Mutex{},
 		cache: make(map[id]*types.Order),
 	}
 }
 
-func (o *orders) Set(order *types.Order) {
+func (o *position) Set(order *types.Order) {
 	o.Lock()
 	defer o.Unlock()
 
 	o.cache[order.ID] = order
 }
 
-func (o *orders) List() []*types.Order {
+func (o *position) List() []*types.Order {
 	o.Lock()
 	defer o.Unlock()
 
@@ -44,7 +44,10 @@ func (o *orders) List() []*types.Order {
 	return result
 }
 
-func (o *orders) Get(id id) *types.Order {
+func (o *position) Get(id id) *types.Order {
+	o.Lock()
+	defer o.Unlock()
+
 	order, ok := o.cache[id]
 	if !ok {
 		return nil
@@ -53,8 +56,8 @@ func (o *orders) Get(id id) *types.Order {
 	return order
 }
 
-// Update remove canceled and filled orders from cache
-func (o *orders) Update() {
+// Update remove canceled and filled position from cache
+func (o *position) Update() {
 	o.Lock()
 	defer o.Unlock()
 

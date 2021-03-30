@@ -8,15 +8,14 @@ import (
 	"os/signal"
 	"syscall"
 
-	appContext "github.com/tgmk/know-trade/internal/context"
-
 	"github.com/Kucoin/kucoin-go-sdk"
 
 	knowtrade "github.com/tgmk/know-trade"
+	"github.com/tgmk/know-trade/config"
+	appContext "github.com/tgmk/know-trade/context"
+	"github.com/tgmk/know-trade/data"
 	"github.com/tgmk/know-trade/examples/testcli"
-	"github.com/tgmk/know-trade/internal/config"
-	"github.com/tgmk/know-trade/internal/data"
-	"github.com/tgmk/know-trade/internal/types"
+	"github.com/tgmk/know-trade/types"
 )
 
 func main() {
@@ -37,15 +36,7 @@ func main() {
 	done := make(chan os.Signal)
 	signal.Notify(done, syscall.SIGTERM, syscall.SIGKILL)
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	cli := testcli.New(ctx, fee, feePercent, startBalance)
-
 	cfg := &config.Config{
-		Run: config.Run{
-			HowRun:       config.EveryMatchRun,
-			InstrumentID: pair,
-		},
 		Data: config.Data{
 			CandlesSize:   20,
 			OrderBookSize: 20,
@@ -53,26 +44,36 @@ func main() {
 		},
 	}
 
-	aCtx := appContext.New(ctx, cfg)
+	hr := knowtrade.NewHowRun(
+		knowtrade.RunSettings{
+			RunType:      config.EveryMatchRun,
+			InstrumentID: pair,
+			Handler:      strategyHandler,
+		},
+	)
+
+	aCtx := appContext.New(cfg, hr.GetRunTypes())
+
+	cli := testcli.New(aCtx.Context, fee, feePercent, startBalance)
 
 	aCtx.SetExchangeClient(cli)
 
-	s := knowtrade.New(aCtx, nil)
+	s := knowtrade.New(aCtx, hr, nil)
 
 	d := aCtx.GetData()
 
-	go readRealTimeFromExchange(ctx, pair, d)
+	go readRealTimeFromExchange(aCtx.Context, pair, d)
 
-	s.Run(strategyHandler, nil)
+	s.Run(nil)
 
 	<-done
-	cancel()
+	s.Stop()
 }
 
-func strategyHandler(ctx *appContext.Context) error {
+func strategyHandler(ctx *appContext.Context, settings *knowtrade.RunSettings) error {
 	matches := ctx.GetData().GetMatches()
 
-	lastMatch := matches.GetLast(ctx.GetConfig().InstrumentID)
+	lastMatch := matches.GetLast(settings.InstrumentID)
 
 	pair := lastMatch.InstrumentID
 

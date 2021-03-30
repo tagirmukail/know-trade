@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/csv"
 	"flag"
 	"io"
@@ -12,11 +11,10 @@ import (
 	"time"
 
 	knowtrade "github.com/tgmk/know-trade"
+	"github.com/tgmk/know-trade/config"
+	appContext "github.com/tgmk/know-trade/context"
 	"github.com/tgmk/know-trade/examples/testcli"
-	"github.com/tgmk/know-trade/internal/config"
-	"github.com/tgmk/know-trade/internal/types"
-
-	appContext "github.com/tgmk/know-trade/internal/context"
+	"github.com/tgmk/know-trade/types"
 )
 
 func main() {
@@ -37,15 +35,7 @@ func main() {
 	done := make(chan os.Signal)
 	signal.Notify(done, syscall.SIGTERM, syscall.SIGKILL)
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	cli := testcli.New(ctx, fee, feePercent, startBalance)
-
 	cfg := &config.Config{
-		Run: config.Run{
-			InstrumentID: "BTC-USDT",
-			HowRun:       config.EveryMatchRun,
-		},
 		Data: config.Data{
 			CandlesSize:   20,
 			OrderBookSize: 20,
@@ -53,11 +43,21 @@ func main() {
 		},
 	}
 
-	aCtx := appContext.New(ctx, cfg)
+	hr := knowtrade.NewHowRun(
+		knowtrade.RunSettings{
+			RunType:      config.EveryMatchRun,
+			InstrumentID: "BTC-USDT",
+			Handler:      strategyHandler,
+		},
+	)
+
+	aCtx := appContext.New(cfg, hr.GetRunTypes())
+
+	cli := testcli.New(aCtx.Context, fee, feePercent, startBalance)
 
 	aCtx.SetExchangeClient(cli)
 
-	s := knowtrade.New(aCtx, nil)
+	s := knowtrade.New(aCtx, hr, nil)
 
 	d := aCtx.GetData()
 
@@ -69,7 +69,7 @@ func main() {
 	reader := csv.NewReader(f)
 	reader.Comma = ';'
 
-	s.Run(strategyHandler, nil)
+	s.Run(nil)
 
 	for {
 		var record []string
@@ -110,7 +110,7 @@ func main() {
 		d.SendToIncomingCh(m)
 	}
 
-	cancel()
+	s.Stop()
 
 	r := cli.Result()
 
@@ -118,17 +118,17 @@ func main() {
 	log.Printf("earning: %v", r.Earning)
 }
 
-func strategyHandler(ctx *appContext.Context) error {
+func strategyHandler(ctx *appContext.Context, settings *knowtrade.RunSettings) error {
 	matches := ctx.GetData().GetMatches()
 
-	lastMatch := matches.GetLast(ctx.GetConfig().InstrumentID)
+	lastMatch := matches.GetLast(settings.InstrumentID)
 
 	switch {
 	case lastMatch.Size > 0.1 && lastMatch.Side == "sell":
 		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
 			Price:        lastMatch.Price,
 			Size:         0.0001,
-			InstrumentID: ctx.GetConfig().InstrumentID,
+			InstrumentID: settings.InstrumentID,
 			Side:         "sell",
 		})
 		if err != nil {
@@ -140,7 +140,7 @@ func strategyHandler(ctx *appContext.Context) error {
 		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
 			Price:        lastMatch.Price,
 			Size:         0.0001,
-			InstrumentID: ctx.GetConfig().InstrumentID,
+			InstrumentID: settings.InstrumentID,
 			Side:         "buy",
 		})
 		if err != nil {

@@ -3,7 +3,7 @@ package data
 import (
 	"sync"
 
-	"github.com/tgmk/know-trade/internal/types"
+	"github.com/tgmk/know-trade/types"
 )
 
 type matches struct {

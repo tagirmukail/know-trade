@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
-	"github.com/tgmk/know-trade/internal/types"
+	"github.com/tgmk/know-trade/types"
 )
 
 type TestExchangeClient struct {

@@ -3,7 +3,7 @@ package exchange
 import (
 	"context"
 
-	"github.com/tgmk/know-trade/internal/types"
+	"github.com/tgmk/know-trade/types"
 )
 
 type IClient interface {
@@ -15,4 +15,8 @@ type IClient interface {
 	GetCandles(ctx context.Context, req *types.GetCandlesRequest) ([]*types.Candle, error)
 	GetOrderBook(ctx context.Context, req *types.GetOrderBookRequest) ([]*types.OrderBook, error)
 	GetPrints(ctx context.Context, req *types.GetPrintsRequest) ([]*types.Match, error)
+	// Other
+	//Portfolio(ctx context.Context) (interface{}, error)
+	//Fiat(ctx context.Context) (interface{}, error)
+	//Withdrawal(ctx context.Context, req interface{}) (interface{}, error)
 }

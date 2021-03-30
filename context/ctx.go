@@ -3,16 +3,18 @@ package context
 import (
 	"context"
 
-	"github.com/tgmk/know-trade/internal/exchange"
+	"github.com/tgmk/know-trade/exchange"
 
-	"github.com/tgmk/know-trade/internal/db"
+	"github.com/tgmk/know-trade/db"
 
-	"github.com/tgmk/know-trade/internal/config"
-	"github.com/tgmk/know-trade/internal/data"
+	"github.com/tgmk/know-trade/config"
+	"github.com/tgmk/know-trade/data"
 )
 
 type Context struct {
 	context.Context
+
+	context.CancelFunc
 
 	cfg *config.Config
 
@@ -23,12 +25,20 @@ type Context struct {
 	exchangeClient exchange.IClient
 }
 
-func New(ctx context.Context, cfg *config.Config) *Context {
-	return &Context{
-		Context: ctx,
-		cfg:     cfg,
-		d:       data.New(ctx, cfg),
+func New(cfg *config.Config, runTypes []config.RunType) *Context {
+	if len(runTypes) == 0 {
+		panic("run settings not configured")
 	}
+
+	ctx := &Context{
+		cfg: cfg,
+	}
+
+	ctx.Context, ctx.CancelFunc = context.WithCancel(context.Background())
+
+	ctx.d = data.New(ctx.Context, cfg, runTypes)
+
+	return ctx
 }
 
 func (c *Context) SetDB(db db.IDB) {

@@ -8,9 +8,9 @@ import (
 	"os"
 	"sync/atomic"
 
-	"github.com/tgmk/know-trade/examples/testcli"
-
 	"github.com/Kucoin/kucoin-go-sdk"
+
+	"github.com/tgmk/know-trade/examples/testcli"
 )
 
 func main() {
