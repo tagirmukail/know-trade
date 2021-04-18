@@ -3,6 +3,7 @@ package types
 import "time"
 
 type Match struct {
+	*baseIncoming
 	InstrumentID string
 	Price        float64
 	Size         float64
@@ -17,20 +18,8 @@ func (p *Match) Type() IncomingType {
 	return IncomingMatch
 }
 
-func (p *Match) Candle() *Candle {
-	panic("not implemented")
-}
-
-func (p *Match) OrderBook() *OrderBook {
-	panic("not implemented")
-}
-
 func (p *Match) Match() *Match {
 	return p
-}
-
-func (p *Match) Order() *Order {
-	panic("not implemented")
 }
 
 type GetPrintsRequest struct {

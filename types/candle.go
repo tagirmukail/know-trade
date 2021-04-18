@@ -18,6 +18,7 @@ const (
 )
 
 type Candle struct {
+	*baseIncoming
 	InstrumentID string
 	Close        float64
 	Open         float64
@@ -35,18 +36,6 @@ func (c *Candle) Type() IncomingType {
 
 func (c *Candle) Candle() *Candle {
 	return c
-}
-
-func (c *Candle) OrderBook() *OrderBook {
-	panic("not implemented")
-}
-
-func (c *Candle) Match() *Match {
-	panic("not implemented")
-}
-
-func (c *Candle) Order() *Order {
-	panic("not implemented")
 }
 
 type GetCandlesRequest struct {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/csv"
 	"flag"
 	"io"
@@ -43,19 +44,17 @@ func main() {
 		},
 	}
 
+	cli := testcli.New(context.Background(), fee, feePercent, startBalance)
+
 	hr := knowtrade.NewHowRun(
 		knowtrade.RunSettings{
 			RunType:      config.EveryMatchRun,
 			InstrumentID: "BTC-USDT",
-			Handler:      strategyHandler,
+			Handler:      strategyHandler(cli),
 		},
 	)
 
 	aCtx := appContext.New(cfg, hr.GetRunTypes())
-
-	cli := testcli.New(aCtx.Context, fee, feePercent, startBalance)
-
-	aCtx.SetExchangeClient(cli)
 
 	s := knowtrade.New(aCtx, hr, nil)
 
@@ -118,39 +117,41 @@ func main() {
 	log.Printf("earning: %v", r.Earning)
 }
 
-func strategyHandler(ctx *appContext.Context, settings *knowtrade.RunSettings) error {
-	matches := ctx.GetData().GetMatches()
+func strategyHandler(client *testcli.TestExchangeClient) knowtrade.Handler {
+	return func(ctx *appContext.Context, settings *knowtrade.RunSettings) error {
+		matches := ctx.GetData().GetMatches()
 
-	lastMatch := matches.GetLast(settings.InstrumentID)
+		lastMatch := matches.GetLast(settings.InstrumentID)
 
-	switch {
-	case lastMatch.Size > 0.1 && lastMatch.Side == "sell":
-		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
-			Price:        lastMatch.Price,
-			Size:         0.0001,
-			InstrumentID: settings.InstrumentID,
-			Side:         "sell",
-		})
-		if err != nil {
-			return err
+		switch {
+		case lastMatch.Size > 0.1 && lastMatch.Side == "sell":
+			o, err := client.Limit(ctx, &types.LimitOrderRequest{
+				Price:        lastMatch.Price,
+				Size:         0.0001,
+				InstrumentID: settings.InstrumentID,
+				Side:         "sell",
+			})
+			if err != nil {
+				return err
+			}
+
+			log.Printf("executed: %#v", o)
+		case lastMatch.Size > 0.1 && lastMatch.Side == "buy":
+			o, err := client.Limit(ctx, &types.LimitOrderRequest{
+				Price:        lastMatch.Price,
+				Size:         0.0001,
+				InstrumentID: settings.InstrumentID,
+				Side:         "buy",
+			})
+			if err != nil {
+				return err
+			}
+
+			log.Printf("executed: %#v", o)
+		default:
+			log.Printf("skip print: %#v", lastMatch)
 		}
 
-		log.Printf("executed: %#v", o)
-	case lastMatch.Size > 0.1 && lastMatch.Side == "buy":
-		o, err := ctx.GetExchangeClient().Limit(ctx, &types.LimitOrderRequest{
-			Price:        lastMatch.Price,
-			Size:         0.0001,
-			InstrumentID: settings.InstrumentID,
-			Side:         "buy",
-		})
-		if err != nil {
-			return err
-		}
-
-		log.Printf("executed: %#v", o)
-	default:
-		log.Printf("skip print: %#v", lastMatch)
+		return nil
 	}
-
-	return nil
 }

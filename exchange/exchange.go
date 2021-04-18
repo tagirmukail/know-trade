@@ -14,7 +14,7 @@ type IClient interface {
 	// Candles
 	GetCandles(ctx context.Context, req *types.GetCandlesRequest) ([]*types.Candle, error)
 	GetOrderBook(ctx context.Context, req *types.GetOrderBookRequest) ([]*types.OrderBook, error)
-	GetPrints(ctx context.Context, req *types.GetPrintsRequest) ([]*types.Match, error)
+	GetMatches(ctx context.Context, req *types.GetPrintsRequest) ([]*types.Match, error)
 	// Other
 	//Portfolio(ctx context.Context) (interface{}, error)
 	//Fiat(ctx context.Context) (interface{}, error)

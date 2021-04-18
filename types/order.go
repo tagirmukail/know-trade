@@ -12,11 +12,8 @@ const (
 	Failed        Status = "failed"
 )
 
-func (o *Order) Type() IncomingType {
-	return IncomingOrder
-}
-
 type Order struct {
+	*baseIncoming
 	ID           string
 	InstrumentID string
 	Side         string
@@ -27,20 +24,12 @@ type Order struct {
 	Other        map[string]interface{}
 }
 
+func (o *Order) Type() IncomingType {
+	return IncomingOrder
+}
+
 func (o *Order) Order() *Order {
 	return o
-}
-
-func (o *Order) Candle() *Candle {
-	panic("not implemented")
-}
-
-func (o *Order) OrderBook() *OrderBook {
-	panic("not implemented")
-}
-
-func (o *Order) Match() *Match {
-	panic("not implemented")
 }
 
 type LimitOrderRequest struct {

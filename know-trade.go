@@ -5,11 +5,10 @@ package knowtrade
 import (
 	"time"
 
-	ctx "github.com/tgmk/know-trade/context"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/tgmk/know-trade/config"
+	ctx "github.com/tgmk/know-trade/context"
 	"github.com/tgmk/know-trade/data"
 )
 
@@ -62,18 +61,20 @@ func (s *strategy) Run(errH ErrHandler) {
 		go s.processErrors(s.errH)
 	}
 
-	for runType, h := range s.howRun {
-		runType := runType
-		h := h
+	for rt, runSettings := range s.howRun {
+		runType := rt
+		settings := runSettings
 		switch runType {
 		case config.TickerRun:
-			go s.tickerRun(h)
+			go s.tickerRun(settings)
 		case config.EveryCandleRun:
-			go s.byCandleRun(h)
+			go s.byCandleRun(settings)
 		case config.EveryMatchRun:
-			go s.byMatchRun(h)
+			go s.byMatchRun(settings)
 		case config.EveryPositionChangeRun:
-			go s.byPositionRun(h)
+			go s.byPositionRun(settings)
+		case config.EveryFinReport:
+			go s.byFinReportRun(settings)
 		//case config.ByOthersRun:
 		default:
 			panic("unknown run type")
@@ -115,7 +116,7 @@ func (s *strategy) byCandleRun(settings *RunSettings) {
 		select {
 		case <-s.ctx.Done():
 			return
-		case <-s.GetData().CandleCh():
+		case <-s.GetData().CandleCh(settings.InstrumentID):
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
 				s.log.WithError(err).WithField("run", "every_candle").Error("strategy execute failed")
@@ -132,7 +133,7 @@ func (s *strategy) byMatchRun(settings *RunSettings) {
 		select {
 		case <-s.ctx.Done():
 			return
-		case <-s.GetData().MatchCh():
+		case <-s.GetData().MatchCh(settings.InstrumentID):
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
 				s.log.WithError(err).WithField("run", "every_match").Error("strategy execute failed")
@@ -149,10 +150,28 @@ func (s *strategy) byPositionRun(settings *RunSettings) {
 		select {
 		case <-s.ctx.Done():
 			return
-		case <-s.GetData().PositionCh():
+		case <-s.GetData().PositionCh(settings.InstrumentID):
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
 				s.log.WithError(err).WithField("run", "every_position_change").
+					Error("strategy execute failed")
+				if s.errH != nil {
+					s.errCh <- err
+				}
+			}
+		}
+	}
+}
+
+func (s *strategy) byFinReportRun(settings *RunSettings) {
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-s.GetData().FinReportsCh():
+			err := settings.Handler(s.ctx, settings)
+			if err != nil {
+				s.log.WithError(err).WithField("run", "every_fin_report_change").
 					Error("strategy execute failed")
 				if s.errH != nil {
 					s.errCh <- err

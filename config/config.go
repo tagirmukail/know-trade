@@ -7,6 +7,7 @@ const (
 	EveryCandleRun
 	EveryMatchRun
 	EveryPositionChangeRun
+	EveryFinReport
 )
 
 type Data struct {

@@ -3,6 +3,8 @@ package data
 import (
 	"context"
 
+	"github.com/tgmk/know-trade/util/sync"
+
 	"github.com/tgmk/know-trade/config"
 	"github.com/tgmk/know-trade/types"
 )
@@ -12,42 +14,41 @@ type Data struct {
 
 	config *config.Config
 
-	runTypes map[config.RunType]struct{}
+	runTypes map[string]map[config.RunType]struct{}
 
 	incomingDataCh   chan types.Incoming
-	candleReceivedCh chan struct{}
-	matchCh          chan struct{}
-	positionCh       chan struct{}
+	candleReceivedCh *sync.ChMap
+	matchCh          *sync.ChMap
+	positionCh       *sync.ChMap
+	financeReportCh  chan struct{}
 
 	candles        *candles
 	orderBookCache *orderBookCache
 	matchesCache   *matches
 	position       *position
+	finReports     *finReports
 }
 
-func New(ctx context.Context, cfg *config.Config, runTypes []config.RunType) *Data {
-
-	rt := make(map[config.RunType]struct{})
-	for _, runType := range runTypes {
-		rt[runType] = struct{}{}
-	}
+func New(ctx context.Context, cfg *config.Config, runTypes map[string]map[config.RunType]struct{}) *Data {
 
 	return &Data{
 		ctx: ctx,
 
 		config: cfg,
 
-		runTypes: rt,
+		runTypes: runTypes,
 
 		incomingDataCh:   make(chan types.Incoming, 2024),
-		candleReceivedCh: make(chan struct{}, 1024),
-		matchCh:          make(chan struct{}, 2024),
-		positionCh:       make(chan struct{}, 512),
+		candleReceivedCh: sync.New(),
+		matchCh:          sync.New(),
+		positionCh:       sync.New(),
+		financeReportCh:  make(chan struct{}, 256),
 
 		candles:        newCandles(cfg.Data.CandlesSize),
 		orderBookCache: newOrderBookCache(cfg.Data.OrderBookSize),
 		matchesCache:   newMatches(cfg.Data.MatchesSize),
 		position:       newPosition(),
+		finReports:     newFinReports(),
 	}
 }
 
@@ -67,6 +68,10 @@ func (d *Data) GetPosition() *position {
 	return d.position
 }
 
+func (d *Data) GetFinReports() *finReports {
+	return d.finReports
+}
+
 func (d *Data) SendToIncomingCh(inc types.Incoming) {
 	d.incomingDataCh <- inc
 }
@@ -75,28 +80,41 @@ func (d *Data) IncomingCh() chan types.Incoming {
 	return d.incomingDataCh
 }
 
-func (d *Data) sendToCandlesCh() {
-	d.candleReceivedCh <- struct{}{}
+func (d *Data) sendToCandlesCh(instrument string) {
+	ch := d.candleReceivedCh.Upsert(instrument)
+	ch <- struct{}{}
 }
 
-func (d *Data) sendToMatchCh() {
-	d.matchCh <- struct{}{}
+func (d *Data) sendToMatchCh(instrument string) {
+	ch := d.matchCh.Upsert(instrument)
+
+	ch <- struct{}{}
 }
 
-func (d *Data) sendToPositionCh() {
-	d.positionCh <- struct{}{}
+func (d *Data) sendToPositionCh(instrument string) {
+	ch := d.positionCh.Upsert(instrument)
+
+	ch <- struct{}{}
 }
 
-func (d *Data) PositionCh() chan struct{} {
-	return d.positionCh
+func (d *Data) sendToFinReportsCh() {
+	d.financeReportCh <- struct{}{}
 }
 
-func (d *Data) CandleCh() chan struct{} {
-	return d.candleReceivedCh
+func (d *Data) PositionCh(inst instrumentID) chan struct{} {
+	return d.positionCh.Upsert(inst)
 }
 
-func (d *Data) MatchCh() chan struct{} {
-	return d.matchCh
+func (d *Data) CandleCh(inst instrumentID) chan struct{} {
+	return d.candleReceivedCh.Upsert(inst)
+}
+
+func (d *Data) MatchCh(inst instrumentID) chan struct{} {
+	return d.matchCh.Upsert(inst)
+}
+
+func (d *Data) FinReportsCh() chan struct{} {
+	return d.financeReportCh
 }
 
 func (d *Data) Process() {
@@ -109,11 +127,16 @@ func (d *Data) Process() {
 			case types.IncomingCandle:
 				candle := inc.Candle()
 
-				if _, ok := d.runTypes[config.EveryCandleRun]; ok {
-					d.sendToCandlesCh()
+				d.candles.Set(candle)
+
+				rt, ok := d.runTypes[candle.InstrumentID]
+				if !ok {
+					continue
 				}
 
-				d.candles.Set(candle)
+				if _, ok := rt[config.EveryCandleRun]; ok {
+					d.sendToCandlesCh(candle.InstrumentID)
+				}
 			case types.IncomingOrderBook:
 				ob := inc.OrderBook()
 
@@ -121,19 +144,44 @@ func (d *Data) Process() {
 			case types.IncomingMatch:
 				p := inc.Match()
 
-				if _, ok := d.runTypes[config.EveryMatchRun]; ok {
-					d.sendToMatchCh()
+				d.matchesCache.Set(p)
+
+				rt, ok := d.runTypes[p.InstrumentID]
+				if !ok {
+					continue
 				}
 
-				d.matchesCache.Set(p)
+				if _, ok := rt[config.EveryMatchRun]; ok {
+					d.sendToMatchCh(p.InstrumentID)
+				}
 			case types.IncomingOrder:
 				o := inc.Order()
 
-				if _, ok := d.runTypes[config.EveryPositionChangeRun]; ok {
-					d.sendToPositionCh()
+				d.position.Set(o)
+
+				go d.position.Update()
+
+				rt, ok := d.runTypes[o.InstrumentID]
+				if !ok {
+					continue
 				}
 
-				d.position.Set(o)
+				if _, ok := rt[config.EveryPositionChangeRun]; ok {
+					d.sendToPositionCh(o.InstrumentID)
+				}
+			case types.IncomingFinReport:
+				fr := inc.FinReport()
+
+				d.finReports.Set(fr)
+
+				rt, ok := d.runTypes[fr.InstrumentID]
+				if !ok {
+					continue
+				}
+
+				if _, ok := rt[config.EveryFinReport]; ok {
+					d.sendToFinReportsCh()
+				}
 			default:
 				panic("unknown incoming data")
 			}

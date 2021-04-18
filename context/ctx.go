@@ -3,8 +3,6 @@ package context
 import (
 	"context"
 
-	"github.com/tgmk/know-trade/exchange"
-
 	"github.com/tgmk/know-trade/db"
 
 	"github.com/tgmk/know-trade/config"
@@ -21,11 +19,9 @@ type Context struct {
 	d *data.Data
 
 	db db.IDB
-
-	exchangeClient exchange.IClient
 }
 
-func New(cfg *config.Config, runTypes []config.RunType) *Context {
+func New(cfg *config.Config, runTypes map[string]map[config.RunType]struct{}) *Context {
 	if len(runTypes) == 0 {
 		panic("run settings not configured")
 	}
@@ -95,12 +91,4 @@ func (c *Context) SetCtx(ctx context.Context) {
 	}
 
 	c.Context = ctx
-}
-
-func (c *Context) SetExchangeClient(client exchange.IClient) {
-	c.exchangeClient = client
-}
-
-func (c *Context) GetExchangeClient() exchange.IClient {
-	return c.exchangeClient
 }

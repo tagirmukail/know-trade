@@ -114,7 +114,7 @@ func (c *TestExchangeClient) GetOrderBook(ctx context.Context, req *types.GetOrd
 	panic("not implemented")
 }
 
-func (c *TestExchangeClient) GetPrints(ctx context.Context, req *types.GetPrintsRequest) ([]*types.Match, error) {
+func (c *TestExchangeClient) GetMatches(ctx context.Context, req *types.GetPrintsRequest) ([]*types.Match, error) {
 	panic("not implemented")
 }
 

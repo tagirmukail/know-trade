@@ -27,9 +27,16 @@ func NewHowRun(runs ...RunSettings) HowRun {
 	return hr
 }
 
-func (hr HowRun) GetRunTypes() (result []config.RunType) {
-	for rt, _ := range hr {
-		result = append(result, rt)
+func (hr HowRun) GetRunTypes() (result map[string]map[config.RunType]struct{}) {
+	result = make(map[string]map[config.RunType]struct{})
+
+	for rt, s := range hr {
+		_, ok := result[s.InstrumentID]
+		if !ok {
+			result[s.InstrumentID] = make(map[config.RunType]struct{})
+		}
+
+		result[s.InstrumentID][rt] = struct{}{}
 	}
 
 	return result
