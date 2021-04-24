@@ -1,4 +1,4 @@
-// knowtrade package is designed to configure and run your trade strategies,
+// Package knowtrade is designed to configure and run your trade strategies,
 // without having to do routine operations
 package knowtrade
 
@@ -18,8 +18,8 @@ type Handler func(ctx *ctx.Context, settings *RunSettings) error
 // ErrHandler handles your trade strategies logic errors
 type ErrHandler func(ctx *ctx.Context, err error) error
 
-// strategy represents strategy runner
-type strategy struct {
+// Manager represents strategies runner
+type Manager struct {
 	ctx       *ctx.Context
 	isStopped bool
 
@@ -35,8 +35,8 @@ func New(
 	ctx *ctx.Context,
 	howRun HowRun,
 	errH ErrHandler,
-) *strategy {
-	return &strategy{
+) *Manager {
+	return &Manager{
 		ctx: ctx,
 
 		errCh: make(chan error),
@@ -48,12 +48,12 @@ func New(
 	}
 }
 
-func (s *strategy) GetData() *data.Data {
+func (s *Manager) GetData() *data.Data {
 	return s.ctx.GetData()
 }
 
-// Run runs your trade strategy logic
-func (s *strategy) Run(errH ErrHandler) {
+// Run runs your trade Manager logic
+func (s *Manager) Run(errH ErrHandler) {
 	go s.ctx.GetData().Process()
 
 	if errH != nil {
@@ -82,7 +82,7 @@ func (s *strategy) Run(errH ErrHandler) {
 	}
 }
 
-func (s *strategy) Stop() {
+func (s *Manager) Stop() {
 	if s.isStopped {
 		return
 	}
@@ -91,7 +91,7 @@ func (s *strategy) Stop() {
 	s.isStopped = true
 }
 
-func (s *strategy) tickerRun(settings *RunSettings) {
+func (s *Manager) tickerRun(settings *RunSettings) {
 	ticker := time.NewTicker(settings.TickerInterval)
 	defer ticker.Stop()
 
@@ -102,7 +102,7 @@ func (s *strategy) tickerRun(settings *RunSettings) {
 		case <-ticker.C:
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
-				s.log.WithError(err).WithField("run", "ticker").Error("strategy execute failed")
+				s.log.WithError(err).WithField("run", "ticker").Error("Manager execute failed")
 				if s.errH != nil {
 					s.errCh <- err
 				}
@@ -111,7 +111,7 @@ func (s *strategy) tickerRun(settings *RunSettings) {
 	}
 }
 
-func (s *strategy) byCandleRun(settings *RunSettings) {
+func (s *Manager) byCandleRun(settings *RunSettings) {
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -119,7 +119,7 @@ func (s *strategy) byCandleRun(settings *RunSettings) {
 		case <-s.GetData().CandleCh(settings.InstrumentID):
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
-				s.log.WithError(err).WithField("run", "every_candle").Error("strategy execute failed")
+				s.log.WithError(err).WithField("run", "every_candle").Error("Manager execute failed")
 				if s.errH != nil {
 					s.errCh <- err
 				}
@@ -128,7 +128,7 @@ func (s *strategy) byCandleRun(settings *RunSettings) {
 	}
 }
 
-func (s *strategy) byMatchRun(settings *RunSettings) {
+func (s *Manager) byMatchRun(settings *RunSettings) {
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -136,7 +136,7 @@ func (s *strategy) byMatchRun(settings *RunSettings) {
 		case <-s.GetData().MatchCh(settings.InstrumentID):
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
-				s.log.WithError(err).WithField("run", "every_match").Error("strategy execute failed")
+				s.log.WithError(err).WithField("run", "every_match").Error("Manager execute failed")
 				if s.errH != nil {
 					s.errCh <- err
 				}
@@ -145,7 +145,7 @@ func (s *strategy) byMatchRun(settings *RunSettings) {
 	}
 }
 
-func (s *strategy) byPositionRun(settings *RunSettings) {
+func (s *Manager) byPositionRun(settings *RunSettings) {
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -154,7 +154,7 @@ func (s *strategy) byPositionRun(settings *RunSettings) {
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
 				s.log.WithError(err).WithField("run", "every_position_change").
-					Error("strategy execute failed")
+					Error("Manager execute failed")
 				if s.errH != nil {
 					s.errCh <- err
 				}
@@ -163,7 +163,7 @@ func (s *strategy) byPositionRun(settings *RunSettings) {
 	}
 }
 
-func (s *strategy) byFinReportRun(settings *RunSettings) {
+func (s *Manager) byFinReportRun(settings *RunSettings) {
 	for {
 		select {
 		case <-s.ctx.Done():
@@ -172,7 +172,7 @@ func (s *strategy) byFinReportRun(settings *RunSettings) {
 			err := settings.Handler(s.ctx, settings)
 			if err != nil {
 				s.log.WithError(err).WithField("run", "every_fin_report_change").
-					Error("strategy execute failed")
+					Error("Manager execute failed")
 				if s.errH != nil {
 					s.errCh <- err
 				}
@@ -181,17 +181,17 @@ func (s *strategy) byFinReportRun(settings *RunSettings) {
 	}
 }
 
-func (s *strategy) byOthersRun(settings *RunSettings) {
+func (s *Manager) byOthersRun(settings *RunSettings) {
 	err := settings.Handler(s.ctx, settings)
 	if err != nil {
-		s.log.WithError(err).WithField("run", "other").Error("strategy execute failed")
+		s.log.WithError(err).WithField("run", "other").Error("Manager execute failed")
 		if s.errH != nil {
 			s.errCh <- err
 		}
 	}
 }
 
-func (s *strategy) processErrors(errH ErrHandler) {
+func (s *Manager) processErrors(errH ErrHandler) {
 	for {
 		select {
 		case <-s.ctx.Done():

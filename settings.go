@@ -6,7 +6,7 @@ import (
 	"github.com/tgmk/know-trade/config"
 )
 
-// RunSettings trade strategy settings
+// RunSettings trade Manager settings
 type RunSettings struct {
 	config.RunType
 	Handler
